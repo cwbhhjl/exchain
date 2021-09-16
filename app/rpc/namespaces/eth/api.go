@@ -1254,6 +1254,21 @@ func (api *PublicEthereumAPI) GetProof(address common.Address, storageKeys []str
 	}, nil
 }
 
+// GetContractBlockedList returns contract blocked list
+func (api *PublicEthereumAPI) GetContractBlockedList() ([]common.Address, error) {
+	path := fmt.Sprintf("custom/%s/%s", evmtypes.ModuleName, evmtypes.QueryContractBlockedList)
+
+	bz, _, err := api.clientCtx.QueryWithData(path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var blockedList []common.Address
+	api.clientCtx.Codec.MustUnmarshalJSON(bz, &blockedList)
+
+	return blockedList, nil
+}
+
 // generateFromArgs populates tx message with args (used in RPC API)
 func (api *PublicEthereumAPI) generateFromArgs(args rpctypes.SendTxArgs) (*evmtypes.MsgEthereumTx, error) {
 	var (
