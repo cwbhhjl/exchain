@@ -2,11 +2,13 @@ package app
 
 import (
 	"fmt"
-	"github.com/okex/exchain/app/utils/sanity"
 	"io"
 	"math/big"
 	"os"
 	"sync"
+
+	ethermint "github.com/okex/exchain/app/types"
+	"github.com/okex/exchain/app/utils/sanity"
 
 	"github.com/okex/exchain/app/ante"
 	okexchaincodec "github.com/okex/exchain/app/codec"
@@ -438,6 +440,16 @@ func NewOKExChainApp(
 	app.SetGasRefundHandler(refund.NewGasRefundHandler(app.AccountKeeper, app.SupplyKeeper))
 	app.SetAccHandler(NewAccHandler(app.AccountKeeper))
 	app.SetParallelTxHandlers(updateFeeCollectorHandler(app.BankKeeper, app.SupplyKeeper), evmTxFeeHandler(), fixLogForParallelTxHandler(app.EvmKeeper))
+
+	app.RegisterPreDeliverTxs(func(ctx sdk.Context, tx sdk.Tx) error {
+		if ethTx, ok := tx.(evmtypes.MsgEthereumTx); ok {
+			chainIDEpoch, err := ethermint.ParseChainID(ctx.ChainID())
+			if err == nil {
+				ethTx.VerifySig(chainIDEpoch, ctx.BlockHeight(), nil)
+			}
+		}
+		return nil
+	})
 
 	if loadLatest {
 		err := app.LoadLatestVersion(app.keys[bam.MainStoreKey])

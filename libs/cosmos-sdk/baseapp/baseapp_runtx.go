@@ -6,10 +6,6 @@ import (
 	"runtime/debug"
 	"sync"
 
-	ethermint "github.com/okex/exchain/app/types"
-
-	"github.com/okex/exchain/x/evm/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
 	sdkerrors "github.com/okex/exchain/libs/cosmos-sdk/types/errors"
@@ -206,6 +202,10 @@ type txJobResult struct {
 	tx   sdk.Tx
 }
 
+func (app *BaseApp) RegisterPreDeliverTxs(handler func(ctx sdk.Context, tx sdk.Tx) error) {
+	app.preDeliverTxsHandler = handler
+}
+
 func (app *BaseApp) DeliverTxs(reqs []abci.RequestDeliverTx) []*abci.ResponseDeliverTx {
 	if len(reqs) == 0 {
 		return nil
@@ -229,11 +229,8 @@ func (app *BaseApp) DeliverTxs(reqs []abci.RequestDeliverTx) []*abci.ResponseDel
 					r := sdkerrors.ResponseDeliverTx(err, 0, 0, app.trace)
 					jobResults[job.index] = txJobResult{resp: &r}
 				} else {
-					if ethTx, ok := tx.(types.MsgEthereumTx); ok {
-						chainIDEpoch, err := ethermint.ParseChainID(app.deliverState.ctx.ChainID())
-						if err == nil {
-							ethTx.VerifySig(chainIDEpoch, app.deliverState.ctx.BlockHeight(), nil)
-						}
+					if app.preDeliverTxsHandler != nil {
+						_ = app.preDeliverTxsHandler(app.deliverState.ctx, tx)
 					}
 					jobResults[job.index] = txJobResult{tx: tx}
 				}
