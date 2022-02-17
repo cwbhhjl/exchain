@@ -53,11 +53,7 @@ func (BaseApplication) DeliverTx(req RequestDeliverTx) ResponseDeliverTx {
 }
 
 func (BaseApplication) DeliverTxs(req []RequestDeliverTx) []*ResponseDeliverTx {
-	res := make([]*ResponseDeliverTx, len(req))
-	for i := range res {
-		res[i] = &ResponseDeliverTx{Code: CodeTypeOK}
-	}
-	return res
+	return nil
 }
 
 func (BaseApplication) CheckTx(req RequestCheckTx) ResponseCheckTx {
