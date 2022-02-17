@@ -55,7 +55,7 @@ func (BaseApplication) DeliverTx(req RequestDeliverTx) ResponseDeliverTx {
 func (BaseApplication) DeliverTxs(req []RequestDeliverTx) []*ResponseDeliverTx {
 	res := make([]*ResponseDeliverTx, len(req))
 	for i := range res {
-		res[i].Code = CodeTypeOK
+		res[i] = &ResponseDeliverTx{Code: CodeTypeOK}
 	}
 	return res
 }
