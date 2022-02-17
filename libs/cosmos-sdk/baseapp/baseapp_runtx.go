@@ -2,7 +2,13 @@ package baseapp
 
 import (
 	"fmt"
+	"runtime"
 	"runtime/debug"
+	"sync"
+
+	ethermint "github.com/okex/exchain/app/types"
+
+	"github.com/okex/exchain/x/evm/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
@@ -167,12 +173,15 @@ func txhash(txbytes []byte) string {
 }
 
 func (app *BaseApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliverTx {
-
 	tx, err := app.txDecoder(req.Tx)
 	if err != nil {
 		return sdkerrors.ResponseDeliverTx(err, 0, 0, app.trace)
 	}
 
+	return app.deliverTx(req, tx)
+}
+
+func (app *BaseApp) deliverTx(req abci.RequestDeliverTx, tx sdk.Tx) abci.ResponseDeliverTx {
 	gInfo, result, _, err := app.runTx(runTxModeDeliver, req.Tx, tx, LatestSimulateTxHeight)
 	if err != nil {
 		return sdkerrors.ResponseDeliverTx(err, gInfo.GasWanted, gInfo.GasUsed, app.trace)
@@ -185,6 +194,70 @@ func (app *BaseApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliverTx 
 		Data:      result.Data,
 		Events:    result.Events.ToABCIEvents(),
 	}
+}
+
+type txjob struct {
+	index int
+	tx    []byte
+}
+
+type txJobResult struct {
+	resp *abci.ResponseDeliverTx
+	tx   sdk.Tx
+}
+
+func (app *BaseApp) DeliverTxs(reqs []abci.RequestDeliverTx) []*abci.ResponseDeliverTx {
+	if len(reqs) == 0 {
+		return nil
+	}
+	var res = make([]*abci.ResponseDeliverTx, len(reqs))
+
+	ch := make(chan txjob, 1024)
+	wg := &sync.WaitGroup{}
+	jobResults := make([]txJobResult, len(reqs))
+
+	workerNum := runtime.NumCPU() / 2
+	if workerNum < 1 {
+		workerNum = 1
+	}
+
+	for i := 0; i < workerNum; i++ {
+		go func(ch chan txjob, wg *sync.WaitGroup, jobResults []txJobResult) {
+			for job := range ch {
+				tx, err := app.txDecoder(job.tx)
+				if err != nil {
+					r := sdkerrors.ResponseDeliverTx(err, 0, 0, app.trace)
+					jobResults[job.index] = txJobResult{resp: &r}
+				} else {
+					if ethTx, ok := tx.(types.MsgEthereumTx); ok {
+						chainIDEpoch, err := ethermint.ParseChainID(app.deliverState.ctx.ChainID())
+						if err == nil {
+							ethTx.VerifySig(chainIDEpoch, app.deliverState.ctx.BlockHeight(), nil)
+						}
+					}
+					jobResults[job.index] = txJobResult{tx: tx}
+				}
+				wg.Done()
+			}
+		}(ch, wg, jobResults)
+	}
+
+	for i, req := range reqs {
+		wg.Add(1)
+		ch <- txjob{i, req.Tx}
+	}
+	wg.Wait()
+	close(ch)
+
+	for i, req := range reqs {
+		if jobResults[i].resp != nil {
+			res[i] = jobResults[i].resp
+		} else {
+			r := app.deliverTx(req, jobResults[i].tx)
+			res[i] = &r
+		}
+	}
+	return res
 }
 
 // runTx processes a transaction within a given execution mode, encoded transaction

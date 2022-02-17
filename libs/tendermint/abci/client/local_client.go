@@ -93,6 +93,23 @@ func (app *localClient) DeliverTxAsync(params types.RequestDeliverTx) *ReqRes {
 	)
 }
 
+func (app *localClient) DeliverTxsAsync(params []types.RequestDeliverTx) []*ReqRes {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	var ret = make([]*ReqRes, 0, len(params))
+
+	var resps = app.Application.DeliverTxs(params)
+
+	for i, res := range resps {
+		ret = append(ret, app.callback(
+			types.ToRequestDeliverTx(params[i]),
+			types.ToResponseDeliverTx(*res),
+		))
+	}
+	return ret
+}
+
 func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
 	if !types.GetDisableABCIQueryMutex() {
 		app.mtx.Lock()

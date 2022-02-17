@@ -2,9 +2,10 @@ package state
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/okex/exchain/libs/tendermint/global"
 	"github.com/okex/exchain/libs/tendermint/libs/automation"
-	"time"
 
 	abci "github.com/okex/exchain/libs/tendermint/abci/types"
 	cfg "github.com/okex/exchain/libs/tendermint/config"
@@ -429,18 +430,28 @@ func execBlockOnProxyApp(context *executionTask) (*ABCIResponses, error) {
 		return nil, err
 	}
 
-	// Run txs of block.
-	for count, tx := range block.Txs {
-		proxyAppConn.DeliverTxAsync(abci.RequestDeliverTx{Tx: tx})
-		if err := proxyAppConn.Error(); err != nil {
-			return nil, err
-		}
-
-		if context != nil && context.stopped {
-			context.dump(fmt.Sprintf("Prerun stopped, %d/%d tx executed", count+1, len(block.Txs)))
-			return nil, fmt.Errorf("Prerun stopped")
-		}
+	txs := make([]abci.RequestDeliverTx, len(block.Txs))
+	for i, tx := range block.Txs {
+		txs[i] = abci.RequestDeliverTx{Tx: tx}
 	}
+
+	proxyAppConn.DeliverTxsAsync(txs)
+	if err = proxyAppConn.Error(); err != nil {
+		return nil, err
+	}
+
+	//// Run txs of block.
+	//for count, tx := range block.Txs {
+	//	proxyAppConn.DeliverTxAsync(abci.RequestDeliverTx{Tx: tx})
+	//	if err := proxyAppConn.Error(); err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	if context != nil && context.stopped {
+	//		context.dump(fmt.Sprintf("Prerun stopped, %d/%d tx executed", count+1, len(block.Txs)))
+	//		return nil, fmt.Errorf("Prerun stopped")
+	//	}
+	//}
 
 	// End block.
 	abciResponses.EndBlock, err = proxyAppConn.EndBlockSync(abci.RequestEndBlock{Height: block.Height})

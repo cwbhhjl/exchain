@@ -18,10 +18,11 @@ type Application interface {
 	CheckTx(RequestCheckTx) ResponseCheckTx // Validate a tx for the mempool
 
 	// Consensus Connection
-	InitChain(RequestInitChain) ResponseInitChain    // Initialize blockchain w validators/other info from TendermintCore
-	BeginBlock(RequestBeginBlock) ResponseBeginBlock // Signals the beginning of a block
-	DeliverTx(RequestDeliverTx) ResponseDeliverTx    // Deliver a tx for full processing
-	EndBlock(RequestEndBlock) ResponseEndBlock       // Signals the end of a block, returns changes to the validator set
+	InitChain(RequestInitChain) ResponseInitChain       // Initialize blockchain w validators/other info from TendermintCore
+	BeginBlock(RequestBeginBlock) ResponseBeginBlock    // Signals the beginning of a block
+	DeliverTx(RequestDeliverTx) ResponseDeliverTx       // Deliver a tx for full processing
+	DeliverTxs([]RequestDeliverTx) []*ResponseDeliverTx // Deliver a tx for full processing
+	EndBlock(RequestEndBlock) ResponseEndBlock          // Signals the end of a block, returns changes to the validator set
 
 	Commit(RequestCommit) ResponseCommit // Commit the state and return the application Merkle root hash
 	ParallelTxs(txs [][]byte) []*ResponseDeliverTx
@@ -49,6 +50,14 @@ func (BaseApplication) SetOption(req RequestSetOption) ResponseSetOption {
 
 func (BaseApplication) DeliverTx(req RequestDeliverTx) ResponseDeliverTx {
 	return ResponseDeliverTx{Code: CodeTypeOK}
+}
+
+func (BaseApplication) DeliverTxs(req []RequestDeliverTx) []*ResponseDeliverTx {
+	res := make([]*ResponseDeliverTx, len(req))
+	for i := range res {
+		res[i].Code = CodeTypeOK
+	}
+	return res
 }
 
 func (BaseApplication) CheckTx(req RequestCheckTx) ResponseCheckTx {

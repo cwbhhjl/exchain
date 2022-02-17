@@ -81,6 +81,15 @@ func (app *PersistentKVStoreApplication) DeliverTx(req types.RequestDeliverTx) t
 	return app.app.DeliverTx(req)
 }
 
+func (app *PersistentKVStoreApplication) DeliverTxs(req []types.RequestDeliverTx) []*types.ResponseDeliverTx {
+	responses := make([]*types.ResponseDeliverTx, len(req))
+	for i, tx := range req {
+		r := app.DeliverTx(tx)
+		responses[i] = &r
+	}
+	return responses
+}
+
 func (app *PersistentKVStoreApplication) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
 	return app.app.CheckTx(req)
 }
