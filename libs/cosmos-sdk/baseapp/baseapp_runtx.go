@@ -216,7 +216,11 @@ func (app *BaseApp) DeliverTxs(reqs []abci.RequestDeliverTx) []*abci.ResponseDel
 	wg := &sync.WaitGroup{}
 	jobResults := make([]txJobResult, len(reqs))
 
-	workerNum := runtime.NumCPU() / 2
+	workerNum := runtime.NumCPU()
+	if len(reqs) < workerNum {
+		workerNum = len(reqs)
+	}
+	workerNum /= 2
 	if workerNum < 1 {
 		workerNum = 1
 	}
