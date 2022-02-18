@@ -194,7 +194,7 @@ type BaseApp struct { // nolint: maligned
 	checkTxNum        int64
 	wrappedCheckTxNum int64
 
-	preDeliverTxsHandler func(sdk.Context, sdk.Tx) error
+	preDeliverTxsHandler func(sdk.Context, *sdk.Tx) error
 }
 
 type recordHandle func(string)

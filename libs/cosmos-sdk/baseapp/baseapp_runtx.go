@@ -202,7 +202,7 @@ type txJobResult struct {
 	tx   sdk.Tx
 }
 
-func (app *BaseApp) RegisterPreDeliverTxs(handler func(ctx sdk.Context, tx sdk.Tx) error) {
+func (app *BaseApp) RegisterPreDeliverTxs(handler func(ctx sdk.Context, tx *sdk.Tx) error) {
 	app.preDeliverTxsHandler = handler
 }
 
@@ -234,7 +234,7 @@ func (app *BaseApp) DeliverTxs(reqs []abci.RequestDeliverTx) []*abci.ResponseDel
 					jobResults[job.index] = txJobResult{resp: &r}
 				} else {
 					if app.preDeliverTxsHandler != nil {
-						_ = app.preDeliverTxsHandler(app.deliverState.ctx, tx)
+						_ = app.preDeliverTxsHandler(app.deliverState.ctx, &tx)
 					}
 					jobResults[job.index] = txJobResult{tx: tx}
 				}
@@ -243,8 +243,8 @@ func (app *BaseApp) DeliverTxs(reqs []abci.RequestDeliverTx) []*abci.ResponseDel
 		}(ch, wg, jobResults)
 	}
 
+	wg.Add(len(reqs))
 	for i, req := range reqs {
-		wg.Add(1)
 		ch <- txjob{i, req.Tx}
 	}
 	wg.Wait()

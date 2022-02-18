@@ -441,11 +441,14 @@ func NewOKExChainApp(
 	app.SetAccHandler(NewAccHandler(app.AccountKeeper))
 	app.SetParallelTxHandlers(updateFeeCollectorHandler(app.BankKeeper, app.SupplyKeeper), evmTxFeeHandler(), fixLogForParallelTxHandler(app.EvmKeeper))
 
-	app.RegisterPreDeliverTxs(func(ctx sdk.Context, tx sdk.Tx) error {
-		if ethTx, ok := tx.(evmtypes.MsgEthereumTx); ok {
+	app.RegisterPreDeliverTxs(func(ctx sdk.Context, tx *sdk.Tx) error {
+		if ethTx, ok := (*tx).(evmtypes.MsgEthereumTx); ok {
 			chainIDEpoch, err := ethermint.ParseChainID(ctx.ChainID())
 			if err == nil {
-				ethTx.VerifySig(chainIDEpoch, ctx.BlockHeight(), nil)
+				_, err = ethTx.VerifySig(chainIDEpoch, ctx.BlockHeight(), nil)
+				if err == nil {
+					*tx = ethTx
+				}
 			}
 		}
 		return nil
