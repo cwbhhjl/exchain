@@ -393,6 +393,20 @@ func (mock *mockProxyApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeli
 	return *r
 }
 
+func (mock *mockProxyApp) DeliverTxs(req []abci.RequestDeliverTx) []*abci.ResponseDeliverTx {
+	responses := make([]*abci.ResponseDeliverTx, 0, len(req))
+	for range req {
+		r := mock.abciResponses.DeliverTxs[mock.txCount]
+		mock.txCount++
+		if r == nil { //it could be nil because of amino unMarshall, it will cause an empty ResponseDeliverTx to become nil
+			responses = append(responses, &abci.ResponseDeliverTx{})
+		} else {
+			responses = append(responses, r)
+		}
+	}
+	return responses
+}
+
 func (mock *mockProxyApp) EndBlock(req abci.RequestEndBlock) abci.ResponseEndBlock {
 	mock.txCount = 0
 	return *mock.abciResponses.EndBlock
